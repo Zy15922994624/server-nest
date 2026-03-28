@@ -5,6 +5,6 @@ export default () => ({
     jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '1d',
   },
   database: {
-    uri: process.env.MONGO_URL ?? 'mongodb://localhost:27017/chat_system',
+    uri: process.env.MONGO_URL ?? 'mongodb://localhost:27017/todo',
   },
 });

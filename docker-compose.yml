@@ -11,7 +11,7 @@ services:
       - .env
     environment:
       PORT: 3000
-      MONGO_URL: mongodb://admin:admin@host.docker.internal:27017/chat_system?authSource=admin
+      MONGO_URL: mongodb://admin:admin@host.docker.internal:27017/todo?authSource=admin
       JWT_SECRET: your_jwt_secret
       JWT_EXPIRES_IN: 1d
       CHOKIDAR_USEPOLLING: 'true'

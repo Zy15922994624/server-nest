@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017/chat_system';
+const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017/todo';
 const SALT_ROUNDS = 12;
 
 const userSchema = new mongoose.Schema(
