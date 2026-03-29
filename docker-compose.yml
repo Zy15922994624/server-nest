@@ -14,10 +14,12 @@ services:
       MONGO_URL: mongodb://admin:admin@host.docker.internal:27017/todo?authSource=admin
       JWT_SECRET: your_jwt_secret
       JWT_EXPIRES_IN: 1d
+      UPLOADS_DIR: /legacy-uploads
       CHOKIDAR_USEPOLLING: 'true'
     volumes:
       - ./:/app
       - backend-node-modules:/app/node_modules
+      - ../chat/server/uploads:/legacy-uploads:ro
     expose:
       - '3000'
 

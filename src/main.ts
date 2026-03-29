@@ -1,6 +1,8 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import express from 'express';
+import path from 'path';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
@@ -25,6 +27,10 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new HttpExceptionFilter());
+
+  const uploadsDir =
+    process.env.UPLOADS_DIR?.trim() || path.join(process.cwd(), 'uploads');
+  app.use('/uploads', express.static(uploadsDir));
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('LMS API')
