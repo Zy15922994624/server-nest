@@ -9,6 +9,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { AuthModule } from './modules/auth/auth.module';
+import { CoursesModule } from './modules/courses/courses.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -29,6 +30,7 @@ import { UsersModule } from './modules/users/users.module';
     }),
     UsersModule,
     AuthModule,
+    CoursesModule,
   ],
   controllers: [AppController],
   providers: [
