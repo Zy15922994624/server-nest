@@ -6,8 +6,10 @@ import { AppException } from '../../common/exceptions/app.exception';
 import type { UserRole } from '../../common/interfaces/auth-user.interface';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { QueryCourseMembersDto } from './dto/query-course-members.dto';
+import { QueryCoursesDto } from './dto/query-courses.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import {
+  CoursesPageDto,
   CourseDetailDto,
   CourseMembersPageDto,
   CourseSummaryDto,
@@ -25,6 +27,11 @@ interface CountAggregation {
 
 interface MembersFacetAggregation {
   items: Record<string, unknown>[];
+  total: Array<{ count: number }>;
+}
+
+interface CourseIdsFacetAggregation {
+  items: Array<{ courseId: Types.ObjectId }>;
   total: Array<{ count: number }>;
 }
 
@@ -59,52 +66,129 @@ export class CoursesService {
   async getCourses(
     userId: string,
     role: UserRole,
-    includeArchived = false,
-  ): Promise<CourseSummaryDto[]> {
-    const query: Record<string, unknown> = {};
+    query: QueryCoursesDto,
+  ): Promise<CoursesPageDto> {
+    const includeArchived = query.includeArchived ?? false;
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
+    const skip = (page - 1) * pageSize;
+
+    const courseQuery: Record<string, unknown> = {};
     if (!includeArchived || role === 'student') {
-      query.isArchived = { $ne: true };
+      courseQuery.isArchived = { $ne: true };
     }
 
     let rawCourses: Array<CourseDocument | Record<string, unknown>> = [];
+    let total = 0;
 
-    if (role === 'admin') {
-      rawCourses = await this.courseModel
-        .find(query)
-        .populate('teacherId', 'fullName username')
-        .sort({ createdAt: -1 });
-    } else if (role === 'teacher') {
-      rawCourses = await this.courseModel
-        .find({
-          ...query,
-          teacherId: this.toObjectId(userId),
-        })
-        .populate('teacherId', 'fullName username')
-        .sort({ createdAt: -1 });
+    if (role === 'admin' || role === 'teacher') {
+      const scopedQuery: Record<string, unknown> =
+        role === 'teacher'
+          ? {
+              ...courseQuery,
+              teacherId: this.toObjectId(userId),
+            }
+          : courseQuery;
+
+      const [courses, totalCount] = await Promise.all([
+        this.courseModel
+          .find(scopedQuery)
+          .populate('teacherId', 'fullName username')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(pageSize),
+        this.courseModel.countDocuments(scopedQuery),
+      ]);
+
+      rawCourses = courses;
+      total = totalCount;
     } else {
-      const memberships = await this.courseMemberModel
-        .find({ userId: this.toObjectId(userId) })
-        .populate({
-          path: 'courseId',
-          match: query,
-          populate: {
-            path: 'teacherId',
-            select: 'fullName username',
+      const pipeline: PipelineStage[] = [
+        {
+          $match: {
+            userId: this.toObjectId(userId),
           },
-        });
+        },
+        { $sort: { createdAt: -1 } },
+        {
+          $lookup: {
+            from: 'courses',
+            localField: 'courseId',
+            foreignField: '_id',
+            as: 'course',
+          },
+        },
+        { $unwind: '$course' },
+      ];
 
-      rawCourses = memberships
-        .map((membership) => membership.courseId as unknown)
-        .filter(Boolean) as Record<string, unknown>[];
+      if (courseQuery.isArchived) {
+        pipeline.push({
+          $match: { 'course.isArchived': courseQuery.isArchived },
+        });
+      }
+
+      pipeline.push({
+        $facet: {
+          items: [
+            { $project: { courseId: '$course._id' } },
+            { $skip: skip },
+            { $limit: pageSize },
+          ],
+          total: [{ $count: 'count' }],
+        },
+      });
+
+      const [result] =
+        await this.courseMemberModel.aggregate<CourseIdsFacetAggregation>(
+          pipeline,
+        );
+      total =
+        result && Array.isArray(result.total) && result.total[0]
+          ? result.total[0].count
+          : 0;
+
+      const pagedCourseIds = Array.isArray(result?.items)
+        ? result.items
+            .map((item) => this.readString(item.courseId))
+            .filter((id): id is string => Boolean(id))
+        : [];
+
+      if (!pagedCourseIds.length) {
+        return {
+          items: [],
+          total,
+        };
+      }
+
+      const pagedCourses = await this.courseModel
+        .find({ _id: { $in: pagedCourseIds.map((id) => this.toObjectId(id)) } })
+        .populate('teacherId', 'fullName username');
+
+      const pagedCourseMap = new Map<
+        string,
+        CourseDocument | Record<string, unknown>
+      >(
+        pagedCourses.map((course) => [this.extractCourseId(course), course]),
+      );
+
+      rawCourses = pagedCourseIds
+        .map((id) => pagedCourseMap.get(id))
+        .filter(
+          (
+            course,
+          ): course is CourseDocument | Record<string, unknown> => Boolean(course),
+        );
     }
 
     const courseIds = rawCourses
       .map((course) => this.extractCourseId(course))
       .filter((id): id is string => Boolean(id));
-
     const statsMap = await this.buildCourseStats(courseIds);
 
-    return rawCourses.map((course) => this.toCourseSummary(course, statsMap));
+    return {
+      items: rawCourses.map((course) => this.toCourseSummary(course, statsMap)),
+      total,
+    };
   }
 
   async getAvailableCourses(

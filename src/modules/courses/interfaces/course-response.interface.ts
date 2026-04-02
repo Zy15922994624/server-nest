@@ -19,6 +19,11 @@ export interface CourseSummaryDto {
 
 export type CourseDetailDto = CourseSummaryDto;
 
+export interface CoursesPageDto {
+  items: CourseSummaryDto[];
+  total: number;
+}
+
 export interface CourseMemberUserDto {
   id: string;
   username: string;

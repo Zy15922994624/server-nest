@@ -33,11 +33,7 @@ export class CoursesController {
   @Get()
   @ApiOperation({ summary: '获取课程列表' })
   getCourses(@CurrentUser() user: AuthUser, @Query() query: QueryCoursesDto) {
-    return this.coursesService.getCourses(
-      user.userId,
-      user.role,
-      query.includeArchived ?? false,
-    );
+    return this.coursesService.getCourses(user.userId, user.role, query);
   }
 
   @Post()

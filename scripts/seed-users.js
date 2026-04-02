@@ -1,7 +1,9 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017/todo';
+const MONGO_URL =
+  process.env.MONGO_URL ||
+  'mongodb://admin:admin@localhost:27017/lms_demo?authSource=admin';
 const SALT_ROUNDS = 12;
 
 const userSchema = new mongoose.Schema(
