@@ -1,3 +1,40 @@
+## LMS 演示环境
+
+本项目支持一体化 Docker 启动（`frontend + backend + nginx + mongo`）。
+
+### 1. 启动服务
+
+```bash
+docker compose up -d --build
+```
+
+### 2. 演示账号
+
+```bash
+docker exec lms-backend npm run seed:users
+```
+
+默认演示账号：
+
+- 管理员：`admin001 / Admin@123456`
+- 教师：`teacher001 / Teacher@123456`
+- 学生：`student001 / Student@123456`
+
+### 3. 访问地址
+
+- 前端（经 Nginx）：`http://localhost:8080`
+- Swagger：`http://localhost:8080/api/docs`
+
+### 4. 常用维护命令
+
+```bash
+# 停止并移除容器
+docker compose down
+
+# 连同数据库卷一起清空（重置演示数据）
+docker compose down -v
+```
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
