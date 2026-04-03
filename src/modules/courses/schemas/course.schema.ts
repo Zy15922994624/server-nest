@@ -13,13 +13,13 @@ export class Course {
     trim: true,
     maxlength: 100,
   })
-  title: string;
+  title!: string;
 
   @Prop({
     default: '',
     maxlength: 1000,
   })
-  description: string;
+  description!: string;
 
   @Prop({
     unique: true,
@@ -47,7 +47,7 @@ export class Course {
     max: 20,
     default: 0,
   })
-  credits: number;
+  credits!: number;
 
   @Prop({
     type: Number,
@@ -55,28 +55,28 @@ export class Course {
     max: 500,
     default: null,
   })
-  maxStudents: number | null;
+  maxStudents!: number | null;
 
   @Prop({
     type: Types.ObjectId,
     ref: 'User',
     required: true,
   })
-  teacherId: Types.ObjectId;
+  teacherId!: Types.ObjectId;
 
   @Prop({
     default: false,
   })
-  isArchived: boolean;
+  isArchived!: boolean;
 
   @Prop({
     type: Date,
     default: null,
   })
-  archivedAt: Date | null;
+  archivedAt!: Date | null;
 
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt!: Date;
+  updatedAt!: Date;
 }
 
 export const CourseSchema = SchemaFactory.createForClass(Course);

@@ -3,16 +3,16 @@ import type { UserRole } from '../../../common/interfaces/auth-user.interface';
 
 export class UserProfileDto {
   @ApiProperty()
-  id: string;
+  id!: string;
 
   @ApiProperty()
-  username: string;
+  username!: string;
 
   @ApiProperty()
-  email: string;
+  email!: string;
 
   @ApiProperty({ enum: ['student', 'teacher', 'admin'] })
-  role: UserRole;
+  role!: UserRole;
 
   @ApiProperty({ required: false })
   fullName?: string;
@@ -21,8 +21,8 @@ export class UserProfileDto {
   avatar?: string;
 
   @ApiProperty()
-  createdAt: string;
+  createdAt!: string;
 
   @ApiProperty()
-  updatedAt: string;
+  updatedAt!: string;
 }

@@ -16,9 +16,9 @@ export class CreateCourseDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  title: string;
+  title!: string;
 
-  @ApiPropertyOptional({ description: '课程描述' })
+  @ApiPropertyOptional({ description: '课程说明' })
   @IsOptional()
   @IsString()
   @MaxLength(1000)
@@ -30,7 +30,7 @@ export class CreateCourseDto {
   @Matches(/^[A-Z]{2}\d{3}$/)
   courseCode?: string;
 
-  @ApiPropertyOptional({ description: '课程封面图 URL' })
+  @ApiPropertyOptional({ description: '课程封面资源标识或相对路径' })
   @IsOptional()
   @IsString()
   coverImage?: string;
@@ -41,14 +41,14 @@ export class CreateCourseDto {
   @MaxLength(50)
   semester?: string;
 
-  @ApiPropertyOptional({ description: '学分（0-20）' })
+  @ApiPropertyOptional({ description: '学分，范围 0-20' })
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Max(20)
   credits?: number;
 
-  @ApiPropertyOptional({ description: '最大人数（1-500）' })
+  @ApiPropertyOptional({ description: '最大学生数，范围 1-500' })
   @IsOptional()
   @IsInt()
   @Min(1)

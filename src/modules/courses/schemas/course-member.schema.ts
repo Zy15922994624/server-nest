@@ -13,23 +13,23 @@ export class CourseMember {
     ref: 'Course',
     required: true,
   })
-  courseId: Types.ObjectId;
+  courseId!: Types.ObjectId;
 
   @Prop({
     type: Types.ObjectId,
     ref: 'User',
     required: true,
   })
-  userId: Types.ObjectId;
+  userId!: Types.ObjectId;
 
   @Prop({
     type: Date,
     default: Date.now,
   })
-  joinDate: Date;
+  joinDate!: Date;
 
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt!: Date;
+  updatedAt!: Date;
 }
 
 export const CourseMemberSchema = SchemaFactory.createForClass(CourseMember);

@@ -16,13 +16,13 @@ export class User {
     minlength: 3,
     maxlength: 30,
   })
-  username: string;
+  username!: string;
 
   @Prop({
     required: true,
     select: false,
   })
-  password: string;
+  password?: string;
 
   @Prop({
     required: true,
@@ -30,7 +30,7 @@ export class User {
     lowercase: true,
     trim: true,
   })
-  email: string;
+  email!: string;
 
   @Prop({
     type: String,
@@ -38,7 +38,7 @@ export class User {
     default: 'student',
     required: true,
   })
-  role: UserRole;
+  role!: UserRole;
 
   @Prop({
     default: '',
@@ -53,8 +53,8 @@ export class User {
   })
   avatar?: string;
 
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt!: Date;
+  updatedAt!: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
