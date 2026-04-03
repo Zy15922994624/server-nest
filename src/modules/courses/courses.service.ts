@@ -167,16 +167,12 @@ export class CoursesService {
       const pagedCourseMap = new Map<
         string,
         CourseDocument | Record<string, unknown>
-      >(
-        pagedCourses.map((course) => [this.extractCourseId(course), course]),
-      );
+      >(pagedCourses.map((course) => [this.extractCourseId(course), course]));
 
       rawCourses = pagedCourseIds
         .map((id) => pagedCourseMap.get(id))
-        .filter(
-          (
-            course,
-          ): course is CourseDocument | Record<string, unknown> => Boolean(course),
+        .filter((course): course is CourseDocument | Record<string, unknown> =>
+          Boolean(course),
         );
     }
 
@@ -483,9 +479,9 @@ export class CoursesService {
       );
     }
 
-    const targetUser = await this.connection
-      .collection('users')
-      .findOne<{ role?: string }>({ _id: targetMemberUserId }, { projection: { role: 1 } });
+    const targetUser = await this.connection.collection('users').findOne<{
+      role?: string;
+    }>({ _id: targetMemberUserId }, { projection: { role: 1 } });
 
     if (!targetUser || targetUser.role !== 'student') {
       throw new AppException(
@@ -504,7 +500,11 @@ export class CoursesService {
     role: UserRole,
     isArchived: boolean,
   ): Promise<void> {
-    const course = await this.findEditableCourse(courseId, operatorUserId, role);
+    const course = await this.findEditableCourse(
+      courseId,
+      operatorUserId,
+      role,
+    );
 
     course.isArchived = isArchived;
     course.archivedAt = isArchived ? new Date() : null;
