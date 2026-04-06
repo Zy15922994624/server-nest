@@ -1,5 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
+import fs from 'fs';
+import path from 'path';
 import { Connection, Model, PipelineStage, Types } from 'mongoose';
 import { ERROR_CODES } from '../../common/constants/error-codes';
 import { AppException } from '../../common/exceptions/app.exception';
@@ -19,6 +21,10 @@ import {
   CourseMember,
   CourseMemberDocument,
 } from './schemas/course-member.schema';
+import {
+  CourseResource,
+  CourseResourceDocument,
+} from '../course-resources/schemas/course-resource.schema';
 
 interface CountAggregation {
   _id: Types.ObjectId;
@@ -42,6 +48,8 @@ export class CoursesService {
     private readonly courseModel: Model<CourseDocument>,
     @InjectModel(CourseMember.name)
     private readonly courseMemberModel: Model<CourseMemberDocument>,
+    @InjectModel(CourseResource.name)
+    private readonly courseResourceModel: Model<CourseResourceDocument>,
     @InjectConnection()
     private readonly connection: Connection,
   ) {}
@@ -279,11 +287,27 @@ export class CoursesService {
     role: UserRole,
   ): Promise<void> {
     const target = await this.findEditableCourse(courseId, userId, role);
+    const resources = await this.courseResourceModel.find(
+      { courseId: target._id },
+      { fileKey: 1 },
+    );
 
     await Promise.all([
       this.courseMemberModel.deleteMany({ courseId: target._id }),
+      this.courseResourceModel.deleteMany({ courseId: target._id }),
       this.courseModel.deleteOne({ _id: target._id }),
     ]);
+
+    await Promise.all(
+      resources.map(async (resource) => {
+        try {
+          const targetPath = this.getStoredFilePath(resource.fileKey);
+          await fs.promises.unlink(targetPath);
+        } catch {
+          return;
+        }
+      }),
+    );
   }
 
   async joinCourse(courseId: string, userId: string): Promise<void> {
@@ -866,6 +890,27 @@ export class CoursesService {
 
   private escapeRegex(input: string): string {
     return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  private getStoredFilePath(fileKey: string): string {
+    const uploadsDir =
+      process.env.UPLOADS_DIR?.trim() || path.join(process.cwd(), 'uploads');
+    const normalizedKey = fileKey.trim();
+    const relativePath = normalizedKey.startsWith('uploads/')
+      ? normalizedKey.slice('uploads/'.length)
+      : normalizedKey;
+    const targetPath = path.resolve(uploadsDir, relativePath);
+    const normalizedUploadsDir = path.resolve(uploadsDir);
+
+    if (!targetPath.startsWith(normalizedUploadsDir)) {
+      throw new AppException(
+        '资源文件路径异常',
+        ERROR_CODES.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return targetPath;
   }
 
   private readString(value: unknown): string | undefined {

@@ -9,6 +9,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { AuthModule } from './modules/auth/auth.module';
+import { CourseResourcesModule } from './modules/course-resources/course-resources.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { UsersModule } from './modules/users/users.module';
@@ -32,6 +33,7 @@ import { UsersModule } from './modules/users/users.module';
     UsersModule,
     AuthModule,
     CoursesModule,
+    CourseResourcesModule,
     UploadsModule,
   ],
   controllers: [AppController],

@@ -7,12 +7,17 @@ import {
   CourseMember,
   CourseMemberSchema,
 } from './schemas/course-member.schema';
+import {
+  CourseResource,
+  CourseResourceSchema,
+} from '../course-resources/schemas/course-resource.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Course.name, schema: CourseSchema },
       { name: CourseMember.name, schema: CourseMemberSchema },
+      { name: CourseResource.name, schema: CourseResourceSchema },
     ]),
   ],
   controllers: [CoursesController],
