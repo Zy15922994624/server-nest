@@ -25,6 +25,10 @@ import {
   CourseResource,
   CourseResourceDocument,
 } from '../course-resources/schemas/course-resource.schema';
+import {
+  CourseDiscussion,
+  CourseDiscussionDocument,
+} from '../course-discussions/schemas/course-discussion.schema';
 
 interface CountAggregation {
   _id: Types.ObjectId;
@@ -50,6 +54,8 @@ export class CoursesService {
     private readonly courseMemberModel: Model<CourseMemberDocument>,
     @InjectModel(CourseResource.name)
     private readonly courseResourceModel: Model<CourseResourceDocument>,
+    @InjectModel(CourseDiscussion.name)
+    private readonly courseDiscussionModel: Model<CourseDiscussionDocument>,
     @InjectConnection()
     private readonly connection: Connection,
   ) {}
@@ -295,6 +301,7 @@ export class CoursesService {
     await Promise.all([
       this.courseMemberModel.deleteMany({ courseId: target._id }),
       this.courseResourceModel.deleteMany({ courseId: target._id }),
+      this.courseDiscussionModel.deleteMany({ courseId: target._id }),
       this.courseModel.deleteOne({ _id: target._id }),
     ]);
 
