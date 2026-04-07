@@ -6,6 +6,13 @@ import { AppException } from '../../common/exceptions/app.exception';
 import type { ParsedQuestionImportRow } from './question-bank.types';
 import type { QuestionType } from './schemas/question-bank.schema';
 
+const 模板示例题标题 = new Set([
+  '单选题示例',
+  '多选题示例',
+  '填空题示例',
+  '简答题示例',
+]);
+
 @Injectable()
 export class QuestionBankImportService {
   assertImportFile(file: MulterFile): void {
@@ -27,17 +34,17 @@ export class QuestionBankImportService {
 
   parseExcelRows(buffer: Buffer, courseId: string): ParsedQuestionImportRow[] {
     const workbook = xlsx.read(buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
+    const worksheet =
+      workbook.Sheets.Template ?? workbook.Sheets[workbook.SheetNames[0] ?? ''];
 
-    if (!sheetName) {
+    if (!worksheet) {
       throw new AppException(
-        'Excel 文件缺少工作表',
+        'Excel 文件缺少可导入的工作表',
         ERROR_CODES.BAD_REQUEST,
         HttpStatus.BAD_REQUEST,
       );
     }
 
-    const worksheet = workbook.Sheets[sheetName];
     const rows = xlsx.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
       defval: '',
       range: 2,
@@ -56,7 +63,7 @@ export class QuestionBankImportService {
 
     rows.forEach((row, index) => {
       const title = this.readCellText(row.title);
-      if (!title || title.startsWith('#')) {
+      if (!title || title.startsWith('#') || 模板示例题标题.has(title)) {
         return;
       }
 

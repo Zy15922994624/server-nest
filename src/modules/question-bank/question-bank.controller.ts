@@ -9,6 +9,7 @@ import {
   Post,
   Query,
   Res,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -72,7 +73,7 @@ export class QuestionBankController {
       )}`,
     );
 
-    return template.buffer;
+    return new StreamableFile(template.buffer);
   }
 
   @Get(':questionId')
