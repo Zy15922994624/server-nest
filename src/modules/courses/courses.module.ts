@@ -15,6 +15,10 @@ import {
   CourseDiscussion,
   CourseDiscussionSchema,
 } from '../course-discussions/schemas/course-discussion.schema';
+import {
+  QuestionBank,
+  QuestionBankSchema,
+} from '../question-bank/schemas/question-bank.schema';
 
 @Module({
   imports: [
@@ -23,6 +27,7 @@ import {
       { name: CourseMember.name, schema: CourseMemberSchema },
       { name: CourseResource.name, schema: CourseResourceSchema },
       { name: CourseDiscussion.name, schema: CourseDiscussionSchema },
+      { name: QuestionBank.name, schema: QuestionBankSchema },
     ]),
   ],
   controllers: [CoursesController],

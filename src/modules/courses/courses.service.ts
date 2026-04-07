@@ -29,6 +29,10 @@ import {
   CourseDiscussion,
   CourseDiscussionDocument,
 } from '../course-discussions/schemas/course-discussion.schema';
+import {
+  QuestionBank,
+  QuestionBankDocument,
+} from '../question-bank/schemas/question-bank.schema';
 
 interface CountAggregation {
   _id: Types.ObjectId;
@@ -56,6 +60,8 @@ export class CoursesService {
     private readonly courseResourceModel: Model<CourseResourceDocument>,
     @InjectModel(CourseDiscussion.name)
     private readonly courseDiscussionModel: Model<CourseDiscussionDocument>,
+    @InjectModel(QuestionBank.name)
+    private readonly questionBankModel: Model<QuestionBankDocument>,
     @InjectConnection()
     private readonly connection: Connection,
   ) {}
@@ -302,6 +308,7 @@ export class CoursesService {
       this.courseMemberModel.deleteMany({ courseId: target._id }),
       this.courseResourceModel.deleteMany({ courseId: target._id }),
       this.courseDiscussionModel.deleteMany({ courseId: target._id }),
+      this.questionBankModel.deleteMany({ courseId: target._id }),
       this.courseModel.deleteOne({ _id: target._id }),
     ]);
 

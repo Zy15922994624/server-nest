@@ -12,6 +12,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CourseDiscussionsModule } from './modules/course-discussions/course-discussions.module';
 import { CourseResourcesModule } from './modules/course-resources/course-resources.module';
 import { CoursesModule } from './modules/courses/courses.module';
+import { QuestionBankModule } from './modules/question-bank/question-bank.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { UsersModule } from './modules/users/users.module';
 
@@ -36,6 +37,7 @@ import { UsersModule } from './modules/users/users.module';
     CoursesModule,
     CourseDiscussionsModule,
     CourseResourcesModule,
+    QuestionBankModule,
     UploadsModule,
   ],
   controllers: [AppController],

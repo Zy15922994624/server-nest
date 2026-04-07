@@ -41,4 +41,5 @@ declare module 'multer' {
   export type StorageEngine = object;
 
   export function diskStorage(options: DiskStorageOptions): StorageEngine;
+  export function memoryStorage(): StorageEngine;
 }
