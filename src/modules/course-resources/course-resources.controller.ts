@@ -17,6 +17,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import type { AuthUser } from '../../common/interfaces/auth-user.interface';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { UploadStorageService } from '../uploads/upload-storage.service';
 import { CreateCourseResourceDto } from './dto/create-course-resource.dto';
 import { QueryCourseResourcesDto } from './dto/query-course-resources.dto';
 import { UpdateCourseResourceDto } from './dto/update-course-resource.dto';
@@ -29,6 +30,7 @@ import { CourseResourcesService } from './course-resources.service';
 export class CourseResourcesController {
   constructor(
     private readonly courseResourcesService: CourseResourcesService,
+    private readonly uploadStorageService: UploadStorageService,
   ) {}
 
   @Get()
@@ -130,7 +132,7 @@ export class CourseResourcesController {
       user.userId,
       user.role,
     );
-    const filePath = this.courseResourcesService.getStoredFilePath(
+    const filePath = this.uploadStorageService.resolveStoredFilePath(
       resource.fileKey,
     );
 

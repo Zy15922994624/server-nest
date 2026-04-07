@@ -16,30 +16,17 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import fs from 'fs';
-import path from 'path';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UploadFileQueryDto } from './dto/upload-file-query.dto';
 import type { StoredUploadFile } from './interfaces/upload-file.interface';
+import {
+  createStoredFilename,
+  ensureDirectory,
+  formatDateFolder,
+  resolveUploadsDir,
+} from './upload-storage.service';
 import { UploadsService } from './uploads.service';
-
-function resolveUploadsDir() {
-  return process.env.UPLOADS_DIR?.trim() || path.join(process.cwd(), 'uploads');
-}
-
-function ensureDirectory(targetPath: string) {
-  if (!fs.existsSync(targetPath)) {
-    fs.mkdirSync(targetPath, { recursive: true });
-  }
-}
-
-function formatDateFolder() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}${month}${day}`;
-}
+import path from 'path';
 
 function createStorage() {
   return diskStorage({
@@ -49,10 +36,7 @@ function createStorage() {
       callback(null, targetDir);
     },
     filename: (_req, file, callback) => {
-      const timestamp = Date.now();
-      const randomValue = Math.round(Math.random() * 1e9);
-      const extension = path.extname(file.originalname).toLowerCase();
-      callback(null, `${timestamp}-${randomValue}${extension}`);
+      callback(null, createStoredFilename(file.originalname));
     },
   });
 }

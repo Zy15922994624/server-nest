@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { UploadsModule } from '../uploads/uploads.module';
+import { CourseCleanupService } from './course-cleanup.service';
+import { CoursePermissionService } from './course-permission.service';
 import { CoursesController } from './courses.controller';
 import { CoursesService } from './courses.service';
 import { Course, CourseSchema } from './schemas/course.schema';
@@ -22,6 +25,7 @@ import {
 
 @Module({
   imports: [
+    UploadsModule,
     MongooseModule.forFeature([
       { name: Course.name, schema: CourseSchema },
       { name: CourseMember.name, schema: CourseMemberSchema },
@@ -31,7 +35,7 @@ import {
     ]),
   ],
   controllers: [CoursesController],
-  providers: [CoursesService],
-  exports: [CoursesService],
+  providers: [CoursesService, CoursePermissionService, CourseCleanupService],
+  exports: [CoursesService, CoursePermissionService],
 })
 export class CoursesModule {}

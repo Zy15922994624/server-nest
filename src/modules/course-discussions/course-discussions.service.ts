@@ -1,14 +1,12 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+﻿import { HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ERROR_CODES } from '../../common/constants/error-codes';
 import { AppException } from '../../common/exceptions/app.exception';
+import { readObjectId, toObjectId } from '../../common/utils/model-value.util';
 import type { UserRole } from '../../common/interfaces/auth-user.interface';
+import { CoursePermissionService } from '../courses/course-permission.service';
 import { Course, CourseDocument } from '../courses/schemas/course.schema';
-import {
-  CourseMember,
-  CourseMemberDocument,
-} from '../courses/schemas/course-member.schema';
 import { CreateCourseDiscussionReplyDto } from './dto/create-course-discussion-reply.dto';
 import { CreateCourseDiscussionDto } from './dto/create-course-discussion.dto';
 import { QueryCourseDiscussionRepliesDto } from './dto/query-course-discussion-replies.dto';
@@ -67,8 +65,7 @@ export class CourseDiscussionsService {
     private readonly courseDiscussionModel: Model<CourseDiscussionDocument>,
     @InjectModel(Course.name)
     private readonly courseModel: Model<CourseDocument>,
-    @InjectModel(CourseMember.name)
-    private readonly courseMemberModel: Model<CourseMemberDocument>,
+    private readonly coursePermissionService: CoursePermissionService,
   ) {}
 
   async getDiscussions(
@@ -148,10 +145,10 @@ export class CourseDiscussionsService {
     await this.assertCanAccessCourse(courseId, userId, role);
 
     const created = await this.courseDiscussionModel.create({
-      courseId: this.toObjectId(courseId),
+      courseId: toObjectId(courseId),
       title: payload.title.trim(),
       content: payload.content.trim(),
-      authorId: this.toObjectId(userId),
+      authorId: toObjectId(userId),
       replies: [],
     });
 
@@ -206,8 +203,8 @@ export class CourseDiscussionsService {
       await this.courseDiscussionModel.aggregate<DiscussionRepliesAggregation>([
         {
           $match: {
-            _id: this.toObjectId(discussionId),
-            courseId: this.toObjectId(courseId),
+            _id: toObjectId(discussionId),
+            courseId: toObjectId(courseId),
           },
         },
         {
@@ -279,7 +276,7 @@ export class CourseDiscussionsService {
     );
     discussion.replies.push({
       content: payload.content.trim(),
-      authorId: this.toObjectId(userId),
+      authorId: toObjectId(userId),
     } as never);
     await discussion.save();
     const reply = discussion.replies[discussion.replies.length - 1];
@@ -338,7 +335,7 @@ export class CourseDiscussionsService {
 
   async removeDiscussionsByCourseId(courseId: string): Promise<void> {
     await this.courseDiscussionModel.deleteMany({
-      courseId: this.toObjectId(courseId),
+      courseId: toObjectId(courseId),
     });
   }
 
@@ -347,7 +344,7 @@ export class CourseDiscussionsService {
     query: QueryCourseDiscussionsDto,
   ): Record<string, unknown> {
     const filter: Record<string, unknown> = {
-      courseId: this.toObjectId(courseId),
+      courseId: toObjectId(courseId),
     };
 
     if (query.search?.trim()) {
@@ -366,45 +363,16 @@ export class CourseDiscussionsService {
     userId: string,
     role: UserRole,
   ): Promise<void> {
-    const targetCourseId = this.toObjectId(courseId);
-    const course = await this.courseModel.findById(targetCourseId);
-
-    if (!course) {
-      throw new AppException(
-        '课程不存在',
-        ERROR_CODES.NOT_FOUND,
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
-    if (role === 'admin') {
-      return;
-    }
-
-    if (role === 'teacher') {
-      if (course.teacherId.toString() === userId) {
-        return;
-      }
-
-      throw new AppException(
-        '无权访问当前课程讨论',
-        ERROR_CODES.FORBIDDEN,
-        HttpStatus.FORBIDDEN,
-      );
-    }
-
-    const membership = await this.courseMemberModel.exists({
-      courseId: targetCourseId,
-      userId: this.toObjectId(userId),
-    });
-
-    if (!membership) {
-      throw new AppException(
-        '未加入当前课程',
-        ERROR_CODES.FORBIDDEN,
-        HttpStatus.FORBIDDEN,
-      );
-    }
+    await this.coursePermissionService.getAccessibleCourse(
+      courseId,
+      userId,
+      role,
+      {
+        notFoundMessage: '课程不存在',
+        forbiddenMessage: '无权访问当前课程讨论',
+        notMemberMessage: '未加入当前课程',
+      },
+    );
   }
 
   private async assertCanDeleteDiscussion(
@@ -463,8 +431,8 @@ export class CourseDiscussionsService {
     courseId: string,
   ): Promise<CourseDiscussionDocument> {
     const discussion = await this.courseDiscussionModel.findOne({
-      _id: this.toObjectId(discussionId),
-      courseId: this.toObjectId(courseId),
+      _id: toObjectId(discussionId),
+      courseId: toObjectId(courseId),
     });
 
     if (!discussion) {
@@ -481,8 +449,8 @@ export class CourseDiscussionsService {
   private toDiscussionListItemDto(
     discussion: CourseDiscussionDocument | DiscussionListAggregation,
   ): CourseDiscussionListItemDto {
-    const discussionId = this.readObjectId(discussion._id);
-    const courseObjectId = this.readObjectId(discussion.courseId);
+    const discussionId = readObjectId(discussion._id);
+    const courseObjectId = readObjectId(discussion.courseId);
     const authorId = this.readUserReferenceId(
       discussion.authorId as UserReference,
     );
@@ -585,29 +553,5 @@ export class CourseDiscussionsService {
     }
 
     return '';
-  }
-
-  private readObjectId(value: unknown): string {
-    if (value instanceof Types.ObjectId) {
-      return value.toString();
-    }
-
-    if (typeof value === 'string') {
-      return value;
-    }
-
-    return '';
-  }
-
-  private toObjectId(value: string): Types.ObjectId {
-    if (!Types.ObjectId.isValid(value)) {
-      throw new AppException(
-        '参数 ID 不合法',
-        ERROR_CODES.BAD_REQUEST,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    return new Types.ObjectId(value);
   }
 }

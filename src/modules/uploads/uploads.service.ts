@@ -1,12 +1,11 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import fs from 'fs';
-import path from 'path';
 import { ERROR_CODES } from '../../common/constants/error-codes';
 import { AppException } from '../../common/exceptions/app.exception';
 import type {
   StoredUploadFile,
   UploadFileDto,
 } from './interfaces/upload-file.interface';
+import { UploadStorageService } from './upload-storage.service';
 
 type UploadScene = 'image' | 'attachment';
 
@@ -60,6 +59,8 @@ const ATTACHMENT_RULE: SceneRule = {
 
 @Injectable()
 export class UploadsService {
+  constructor(private readonly uploadStorageService: UploadStorageService) {}
+
   private readonly sceneRules: Record<UploadScene, SceneRule> = {
     image: IMAGE_RULE,
     attachment: ATTACHMENT_RULE,
@@ -80,7 +81,7 @@ export class UploadsService {
     try {
       this.validateFile(file, scene);
 
-      const key = this.toStorageKey(file.path);
+      const key = this.uploadStorageService.toStorageKey(file.path);
 
       return {
         key,
@@ -90,7 +91,7 @@ export class UploadsService {
         mimeType: file.mimetype,
       };
     } catch (error) {
-      await this.removeFileIfExists(file.path);
+      await this.uploadStorageService.removeStoredFileByPath(file.path);
       throw error;
     }
   }
@@ -113,38 +114,6 @@ export class UploadsService {
         ERROR_CODES.BAD_REQUEST,
         HttpStatus.BAD_REQUEST,
       );
-    }
-  }
-
-  private toStorageKey(filePath: string): string {
-    const uploadsDir =
-      process.env.UPLOADS_DIR?.trim() || path.join(process.cwd(), 'uploads');
-    const normalizedUploadsDir = path.resolve(uploadsDir);
-    const normalizedFilePath = path.resolve(filePath);
-    const relativePath = path.relative(
-      normalizedUploadsDir,
-      normalizedFilePath,
-    );
-
-    if (relativePath.startsWith('..')) {
-      throw new AppException(
-        '上传文件路径异常',
-        ERROR_CODES.BAD_REQUEST,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    return path.posix.join(
-      'uploads',
-      relativePath.split(path.sep).join(path.posix.sep),
-    );
-  }
-
-  private async removeFileIfExists(filePath: string): Promise<void> {
-    try {
-      await fs.promises.unlink(filePath);
-    } catch {
-      return;
     }
   }
 }

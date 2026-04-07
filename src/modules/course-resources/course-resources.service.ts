@@ -1,16 +1,12 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+﻿import { HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import fs from 'fs';
-import path from 'path';
 import { Model, Types } from 'mongoose';
 import { ERROR_CODES } from '../../common/constants/error-codes';
 import { AppException } from '../../common/exceptions/app.exception';
+import { toObjectId } from '../../common/utils/model-value.util';
 import type { UserRole } from '../../common/interfaces/auth-user.interface';
-import {
-  CourseMember,
-  CourseMemberDocument,
-} from '../courses/schemas/course-member.schema';
-import { Course, CourseDocument } from '../courses/schemas/course.schema';
+import { CoursePermissionService } from '../courses/course-permission.service';
+import { UploadStorageService } from '../uploads/upload-storage.service';
 import { CreateCourseResourceDto } from './dto/create-course-resource.dto';
 import { QueryCourseResourcesDto } from './dto/query-course-resources.dto';
 import { UpdateCourseResourceDto } from './dto/update-course-resource.dto';
@@ -28,10 +24,8 @@ export class CourseResourcesService {
   constructor(
     @InjectModel(CourseResource.name)
     private readonly courseResourceModel: Model<CourseResourceDocument>,
-    @InjectModel(Course.name)
-    private readonly courseModel: Model<CourseDocument>,
-    @InjectModel(CourseMember.name)
-    private readonly courseMemberModel: Model<CourseMemberDocument>,
+    private readonly coursePermissionService: CoursePermissionService,
+    private readonly uploadStorageService: UploadStorageService,
   ) {}
 
   async getResources(
@@ -73,9 +67,9 @@ export class CourseResourcesService {
 
     const sanitized = this.sanitizeCreatePayload(payload);
     const created = await this.courseResourceModel.create({
-      courseId: this.toObjectId(courseId),
+      courseId: toObjectId(courseId),
       ...sanitized,
-      uploaderId: this.toObjectId(userId),
+      uploaderId: toObjectId(userId),
     });
 
     const resource = await this.courseResourceModel
@@ -139,12 +133,12 @@ export class CourseResourcesService {
 
   async removeResourcesByCourseId(courseId: string): Promise<void> {
     const resources = await this.courseResourceModel.find(
-      { courseId: this.toObjectId(courseId) },
+      { courseId: toObjectId(courseId) },
       { fileKey: 1 },
     );
 
     await this.courseResourceModel.deleteMany({
-      courseId: this.toObjectId(courseId),
+      courseId: toObjectId(courseId),
     });
 
     await Promise.all(
@@ -152,33 +146,12 @@ export class CourseResourcesService {
     );
   }
 
-  getStoredFilePath(fileKey: string): string {
-    const uploadsDir =
-      process.env.UPLOADS_DIR?.trim() || path.join(process.cwd(), 'uploads');
-    const normalizedKey = fileKey.trim();
-    const relativePath = normalizedKey.startsWith('uploads/')
-      ? normalizedKey.slice('uploads/'.length)
-      : normalizedKey;
-    const targetPath = path.resolve(uploadsDir, relativePath);
-    const normalizedUploadsDir = path.resolve(uploadsDir);
-
-    if (!targetPath.startsWith(normalizedUploadsDir)) {
-      throw new AppException(
-        '资源文件路径异常',
-        ERROR_CODES.BAD_REQUEST,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    return targetPath;
-  }
-
   private buildResourceFilter(
     courseId: string,
     query: QueryCourseResourcesDto,
   ): Record<string, unknown> {
     const filter: Record<string, unknown> = {
-      courseId: this.toObjectId(courseId),
+      courseId: toObjectId(courseId),
     };
 
     if (query.type) {
@@ -263,44 +236,16 @@ export class CourseResourcesService {
     userId: string,
     role: UserRole,
   ): Promise<void> {
-    const targetCourseId = this.toObjectId(courseId);
-    const course = await this.courseModel.findById(targetCourseId);
-    if (!course) {
-      throw new AppException(
-        '课程不存在',
-        ERROR_CODES.NOT_FOUND,
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
-    if (role === 'admin') {
-      return;
-    }
-
-    if (role === 'teacher') {
-      if (course.teacherId.toString() === userId) {
-        return;
-      }
-
-      throw new AppException(
-        '无权访问当前课程资源',
-        ERROR_CODES.FORBIDDEN,
-        HttpStatus.FORBIDDEN,
-      );
-    }
-
-    const membership = await this.courseMemberModel.exists({
-      courseId: targetCourseId,
-      userId: this.toObjectId(userId),
-    });
-
-    if (!membership) {
-      throw new AppException(
-        '未加入当前课程',
-        ERROR_CODES.FORBIDDEN,
-        HttpStatus.FORBIDDEN,
-      );
-    }
+    await this.coursePermissionService.getAccessibleCourse(
+      courseId,
+      userId,
+      role,
+      {
+        notFoundMessage: '课程不存在',
+        forbiddenMessage: '无权访问当前课程资源',
+        notMemberMessage: '未加入当前课程',
+      },
+    );
   }
 
   private async assertCanManageCourseResources(
@@ -308,15 +253,16 @@ export class CourseResourcesService {
     userId: string,
     role: UserRole,
   ): Promise<void> {
-    if (role === 'student') {
-      throw new AppException(
-        '学生不能管理课程资源',
-        ERROR_CODES.FORBIDDEN,
-        HttpStatus.FORBIDDEN,
-      );
-    }
-
-    await this.assertCanAccessCourse(courseId, userId, role);
+    await this.coursePermissionService.getManageableCourse(
+      courseId,
+      userId,
+      role,
+      {
+        notFoundMessage: '课程不存在',
+        forbiddenMessage: '无权访问当前课程资源',
+        studentForbiddenMessage: '学生不能管理课程资源',
+      },
+    );
   }
 
   private async assertCanManageExistingResource(
@@ -348,8 +294,8 @@ export class CourseResourcesService {
     courseId: string,
   ): Promise<CourseResourceDocument> {
     const resource = await this.courseResourceModel.findOne({
-      _id: this.toObjectId(resourceId),
-      courseId: this.toObjectId(courseId),
+      _id: toObjectId(resourceId),
+      courseId: toObjectId(courseId),
     });
 
     if (!resource) {
@@ -401,23 +347,6 @@ export class CourseResourcesService {
   }
 
   private async removeStoredFile(fileKey: string): Promise<void> {
-    try {
-      const targetPath = this.getStoredFilePath(fileKey);
-      await fs.promises.unlink(targetPath);
-    } catch {
-      return;
-    }
-  }
-
-  private toObjectId(value: string): Types.ObjectId {
-    if (!Types.ObjectId.isValid(value)) {
-      throw new AppException(
-        '参数 ID 不合法',
-        ERROR_CODES.BAD_REQUEST,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    return new Types.ObjectId(value);
+    await this.uploadStorageService.removeStoredFileByKey(fileKey);
   }
 }

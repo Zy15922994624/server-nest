@@ -1,11 +1,17 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+﻿import { HttpStatus, Injectable } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import fs from 'fs';
-import path from 'path';
 import { Connection, Model, PipelineStage, Types } from 'mongoose';
 import { ERROR_CODES } from '../../common/constants/error-codes';
 import { AppException } from '../../common/exceptions/app.exception';
+import {
+  readString,
+  toISOString,
+  toISOStringOrNull,
+  toObjectId,
+} from '../../common/utils/model-value.util';
 import type { UserRole } from '../../common/interfaces/auth-user.interface';
+import { CourseCleanupService } from './course-cleanup.service';
+import { CoursePermissionService } from './course-permission.service';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { QueryCourseMembersDto } from './dto/query-course-members.dto';
 import { QueryCoursesDto } from './dto/query-courses.dto';
@@ -21,18 +27,6 @@ import {
   CourseMember,
   CourseMemberDocument,
 } from './schemas/course-member.schema';
-import {
-  CourseResource,
-  CourseResourceDocument,
-} from '../course-resources/schemas/course-resource.schema';
-import {
-  CourseDiscussion,
-  CourseDiscussionDocument,
-} from '../course-discussions/schemas/course-discussion.schema';
-import {
-  QuestionBank,
-  QuestionBankDocument,
-} from '../question-bank/schemas/question-bank.schema';
 
 interface CountAggregation {
   _id: Types.ObjectId;
@@ -56,12 +50,8 @@ export class CoursesService {
     private readonly courseModel: Model<CourseDocument>,
     @InjectModel(CourseMember.name)
     private readonly courseMemberModel: Model<CourseMemberDocument>,
-    @InjectModel(CourseResource.name)
-    private readonly courseResourceModel: Model<CourseResourceDocument>,
-    @InjectModel(CourseDiscussion.name)
-    private readonly courseDiscussionModel: Model<CourseDiscussionDocument>,
-    @InjectModel(QuestionBank.name)
-    private readonly questionBankModel: Model<QuestionBankDocument>,
+    private readonly coursePermissionService: CoursePermissionService,
+    private readonly courseCleanupService: CourseCleanupService,
     @InjectConnection()
     private readonly connection: Connection,
   ) {}
@@ -75,7 +65,7 @@ export class CoursesService {
 
     const created = await this.courseModel.create({
       ...sanitized,
-      teacherId: this.toObjectId(teacherId),
+      teacherId: toObjectId(teacherId),
       isArchived: false,
       archivedAt: null,
     });
@@ -106,7 +96,7 @@ export class CoursesService {
         role === 'teacher'
           ? {
               ...courseQuery,
-              teacherId: this.toObjectId(userId),
+              teacherId: toObjectId(userId),
             }
           : courseQuery;
 
@@ -126,7 +116,7 @@ export class CoursesService {
       const pipeline: PipelineStage[] = [
         {
           $match: {
-            userId: this.toObjectId(userId),
+            userId: toObjectId(userId),
           },
         },
         { $sort: { createdAt: -1 } },
@@ -169,7 +159,7 @@ export class CoursesService {
 
       const pagedCourseIds = Array.isArray(result?.items)
         ? result.items
-            .map((item) => this.readString(item.courseId))
+            .map((item) => readString(item.courseId))
             .filter((id): id is string => Boolean(id))
         : [];
 
@@ -181,7 +171,7 @@ export class CoursesService {
       }
 
       const pagedCourses = await this.courseModel
-        .find({ _id: { $in: pagedCourseIds.map((id) => this.toObjectId(id)) } })
+        .find({ _id: { $in: pagedCourseIds.map((id) => toObjectId(id)) } })
         .populate('teacherId', 'fullName username');
 
       const pagedCourseMap = new Map<
@@ -212,7 +202,7 @@ export class CoursesService {
     keyword?: string,
   ): Promise<CourseSummaryDto[]> {
     const joined = await this.courseMemberModel.find(
-      { userId: this.toObjectId(userId) },
+      { userId: toObjectId(userId) },
       { courseId: 1 },
     );
     const joinedCourseIds = joined.map((item) => item.courseId);
@@ -247,11 +237,11 @@ export class CoursesService {
     userId: string,
     role: UserRole,
   ): Promise<CourseDetailDto> {
-    const targetId = this.toObjectId(courseId);
+    const targetId = toObjectId(courseId);
     const baseQuery: Record<string, unknown> = { _id: targetId };
 
     if (role === 'teacher') {
-      baseQuery.teacherId = this.toObjectId(userId);
+      baseQuery.teacherId = toObjectId(userId);
     }
 
     if (role === 'student') {
@@ -299,33 +289,15 @@ export class CoursesService {
     role: UserRole,
   ): Promise<void> {
     const target = await this.findEditableCourse(courseId, userId, role);
-    const resources = await this.courseResourceModel.find(
-      { courseId: target._id },
-      { fileKey: 1 },
-    );
 
     await Promise.all([
-      this.courseMemberModel.deleteMany({ courseId: target._id }),
-      this.courseResourceModel.deleteMany({ courseId: target._id }),
-      this.courseDiscussionModel.deleteMany({ courseId: target._id }),
-      this.questionBankModel.deleteMany({ courseId: target._id }),
+      this.courseCleanupService.removeCourseRelations(target._id),
       this.courseModel.deleteOne({ _id: target._id }),
     ]);
-
-    await Promise.all(
-      resources.map(async (resource) => {
-        try {
-          const targetPath = this.getStoredFilePath(resource.fileKey);
-          await fs.promises.unlink(targetPath);
-        } catch {
-          return;
-        }
-      }),
-    );
   }
 
   async joinCourse(courseId: string, userId: string): Promise<void> {
-    const targetId = this.toObjectId(courseId);
+    const targetId = toObjectId(courseId);
     const course = await this.courseModel.findById(targetId);
 
     if (!course) {
@@ -357,7 +329,7 @@ export class CoursesService {
 
     const existing = await this.courseMemberModel.findOne({
       courseId: targetId,
-      userId: this.toObjectId(userId),
+      userId: toObjectId(userId),
     });
     if (existing) {
       throw new AppException(
@@ -369,15 +341,15 @@ export class CoursesService {
 
     await this.courseMemberModel.create({
       courseId: targetId,
-      userId: this.toObjectId(userId),
+      userId: toObjectId(userId),
     });
   }
 
   async leaveCourse(courseId: string, userId: string): Promise<void> {
-    const targetId = this.toObjectId(courseId);
+    const targetId = toObjectId(courseId);
     const removed = await this.courseMemberModel.findOneAndDelete({
       courseId: targetId,
-      userId: this.toObjectId(userId),
+      userId: toObjectId(userId),
     });
     if (!removed) {
       throw new AppException(
@@ -394,7 +366,7 @@ export class CoursesService {
     role: UserRole,
     query: QueryCourseMembersDto,
   ): Promise<CourseMembersPageDto> {
-    const targetId = this.toObjectId(courseId);
+    const targetId = toObjectId(courseId);
     await this.assertCanViewMembers(targetId, userId, role);
 
     const page = query.page ?? 1;
@@ -470,8 +442,8 @@ export class CoursesService {
     operatorUserId: string,
     role: UserRole,
   ): Promise<void> {
-    const targetCourseId = this.toObjectId(courseId);
-    const targetMemberUserId = this.toObjectId(targetUserId);
+    const targetCourseId = toObjectId(courseId);
+    const targetMemberUserId = toObjectId(targetUserId);
 
     if (operatorUserId === targetUserId) {
       throw new AppException(
@@ -484,7 +456,7 @@ export class CoursesService {
     if (role === 'teacher') {
       const owned = await this.courseModel.exists({
         _id: targetCourseId,
-        teacherId: this.toObjectId(operatorUserId),
+        teacherId: toObjectId(operatorUserId),
       });
       if (!owned) {
         throw new AppException(
@@ -555,22 +527,16 @@ export class CoursesService {
     userId: string,
     role: UserRole,
   ): Promise<CourseDocument> {
-    const targetId = this.toObjectId(courseId);
-    const query: Record<string, unknown> = { _id: targetId };
-    if (role === 'teacher') {
-      query.teacherId = this.toObjectId(userId);
-    }
-
-    const course = await this.courseModel.findOne(query);
-    if (!course) {
-      throw new AppException(
-        '课程不存在或无编辑权限',
-        ERROR_CODES.NOT_FOUND,
-        HttpStatus.NOT_FOUND,
-      );
-    }
-
-    return course;
+    return this.coursePermissionService.getManageableCourse(
+      courseId,
+      userId,
+      role,
+      {
+        notFoundMessage: '课程不存在或无编辑权限',
+        forbiddenMessage: '无权编辑当前课程',
+        studentForbiddenMessage: '学生不能编辑课程',
+      },
+    );
   }
 
   private async assertCanViewMembers(
@@ -578,34 +544,15 @@ export class CoursesService {
     userId: string,
     role: UserRole,
   ): Promise<void> {
-    if (role === 'admin') {
-      return;
-    }
-
-    if (role === 'teacher') {
-      const owned = await this.courseModel.exists({
-        _id: courseId,
-        teacherId: this.toObjectId(userId),
-      });
-      if (owned) {
-        return;
-      }
-    }
-
-    if (role === 'student') {
-      const joined = await this.courseMemberModel.exists({
-        courseId,
-        userId: this.toObjectId(userId),
-      });
-      if (joined) {
-        return;
-      }
-    }
-
-    throw new AppException(
-      '无权限查看课程成员',
-      ERROR_CODES.FORBIDDEN,
-      HttpStatus.FORBIDDEN,
+    await this.coursePermissionService.getAccessibleCourse(
+      courseId,
+      userId,
+      role,
+      {
+        notFoundMessage: '课程不存在',
+        forbiddenMessage: '无权限查看课程成员',
+        notMemberMessage: '无权限查看课程成员',
+      },
     );
   }
 
@@ -613,17 +560,11 @@ export class CoursesService {
     courseId: Types.ObjectId,
     userId: string,
   ): Promise<void> {
-    const membership = await this.courseMemberModel.exists({
+    await this.coursePermissionService.assertStudentMember(
       courseId,
-      userId: this.toObjectId(userId),
-    });
-    if (!membership) {
-      throw new AppException(
-        '你未加入该课程',
-        ERROR_CODES.FORBIDDEN,
-        HttpStatus.FORBIDDEN,
-      );
-    }
+      userId,
+      '你未加入该课程',
+    );
   }
 
   private sanitizeCoursePayload(payload: CreateCourseDto | UpdateCourseDto) {
@@ -694,7 +635,7 @@ export class CoursesService {
       >();
     }
 
-    const objectIds = courseIds.map((id) => this.toObjectId(id));
+    const objectIds = courseIds.map((id) => toObjectId(id));
     const [studentStats, taskStats] = await Promise.all([
       this.courseMemberModel.aggregate<CountAggregation>([
         { $match: { courseId: { $in: objectIds } } },
@@ -763,8 +704,8 @@ export class CoursesService {
 
     return {
       id,
-      title: this.readString(doc.title) ?? '',
-      description: this.readString(doc.description) ?? '',
+      title: readString(doc.title) ?? '',
+      description: readString(doc.description) ?? '',
       courseCode:
         typeof doc.courseCode === 'string' ? doc.courseCode : undefined,
       coverImage: this.normalizeAssetUrl(doc.coverImage),
@@ -779,9 +720,9 @@ export class CoursesService {
       studentCount: stats.studentCount,
       taskCount: stats.taskCount,
       isArchived: Boolean(doc.isArchived),
-      archivedAt: this.toISOStringOrNull(doc.archivedAt),
-      createdAt: this.toISOString(doc.createdAt),
-      updatedAt: this.toISOString(doc.updatedAt),
+      archivedAt: toISOStringOrNull(doc.archivedAt),
+      createdAt: toISOString(doc.createdAt),
+      updatedAt: toISOString(doc.updatedAt),
     };
   }
 
@@ -791,14 +732,14 @@ export class CoursesService {
       id: String(item._id),
       courseId: String(item.courseId),
       userId: String(item.userId),
-      joinDate: this.toISOString(item.joinDate),
-      createdAt: this.toISOString(item.createdAt),
-      updatedAt: this.toISOString(item.updatedAt),
+      joinDate: toISOString(item.joinDate),
+      createdAt: toISOString(item.createdAt),
+      updatedAt: toISOString(item.updatedAt),
       user: {
-        id: this.readString(user._id) ?? '',
-        username: this.readString(user.username) ?? '',
-        email: this.readString(user.email) ?? '',
-        role: this.readString(user.role) ?? '',
+        id: readString(user._id) ?? '',
+        username: readString(user.username) ?? '',
+        email: readString(user.email) ?? '',
+        role: readString(user.role) ?? '',
         fullName: typeof user.fullName === 'string' ? user.fullName : undefined,
         avatar: this.normalizeAssetUrl(user.avatar),
       },
@@ -806,7 +747,7 @@ export class CoursesService {
   }
 
   private normalizeAssetUrl(value: unknown): string | undefined {
-    const raw = this.readString(value)?.trim();
+    const raw = readString(value)?.trim();
     if (!raw) {
       return undefined;
     }
@@ -832,7 +773,7 @@ export class CoursesService {
     if (raw instanceof Types.ObjectId) {
       return raw.toString();
     }
-    return this.readString(raw) ?? '';
+    return readString(raw) ?? '';
   }
 
   private extractTeacherId(rawTeacherId: unknown): string {
@@ -845,42 +786,10 @@ export class CoursesService {
         return teacherDoc._id.toString();
       }
       if (teacherDoc._id) {
-        return this.readString(teacherDoc._id) ?? '';
+        return readString(teacherDoc._id) ?? '';
       }
     }
-    return this.readString(rawTeacherId) ?? '';
-  }
-
-  private toObjectId(value: string): Types.ObjectId {
-    if (!Types.ObjectId.isValid(value)) {
-      throw new AppException(
-        '参数 ID 不合法',
-        ERROR_CODES.BAD_REQUEST,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    return new Types.ObjectId(value);
-  }
-
-  private toISOString(value: unknown): string {
-    if (value instanceof Date) {
-      return value.toISOString();
-    }
-    if (typeof value !== 'string' && typeof value !== 'number') {
-      return new Date(0).toISOString();
-    }
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return new Date(0).toISOString();
-    }
-    return date.toISOString();
-  }
-
-  private toISOStringOrNull(value: unknown): string | null {
-    if (!value) {
-      return null;
-    }
-    return this.toISOString(value);
+    return readString(rawTeacherId) ?? '';
   }
 
   private countStudentMembers(courseId: Types.ObjectId) {
@@ -904,39 +813,5 @@ export class CoursesService {
 
   private escapeRegex(input: string): string {
     return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-
-  private getStoredFilePath(fileKey: string): string {
-    const uploadsDir =
-      process.env.UPLOADS_DIR?.trim() || path.join(process.cwd(), 'uploads');
-    const normalizedKey = fileKey.trim();
-    const relativePath = normalizedKey.startsWith('uploads/')
-      ? normalizedKey.slice('uploads/'.length)
-      : normalizedKey;
-    const targetPath = path.resolve(uploadsDir, relativePath);
-    const normalizedUploadsDir = path.resolve(uploadsDir);
-
-    if (!targetPath.startsWith(normalizedUploadsDir)) {
-      throw new AppException(
-        '资源文件路径异常',
-        ERROR_CODES.BAD_REQUEST,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    return targetPath;
-  }
-
-  private readString(value: unknown): string | undefined {
-    if (value instanceof Types.ObjectId) {
-      return value.toString();
-    }
-    if (typeof value === 'string') {
-      return value;
-    }
-    if (typeof value === 'number' || typeof value === 'boolean') {
-      return String(value);
-    }
-    return undefined;
   }
 }
