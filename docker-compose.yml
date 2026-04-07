@@ -19,7 +19,7 @@ services:
     container_name: lms-backend
     restart: unless-stopped
     working_dir: /app
-    command: npm run start
+    command: sh /app/scripts/start-backend-dev.sh
     env_file:
       - .env
     environment:
@@ -29,6 +29,7 @@ services:
       JWT_EXPIRES_IN: 1d
       UPLOADS_DIR: /app/uploads
       CHOKIDAR_USEPOLLING: 'true'
+      WATCHPACK_POLLING: 'true'
     volumes:
       - ./:/app
       - backend-node-modules:/app/node_modules
