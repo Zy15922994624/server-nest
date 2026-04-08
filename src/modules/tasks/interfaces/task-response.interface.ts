@@ -61,12 +61,42 @@ export interface TaskDetailDto extends TaskItemDto {
   relatedResources: TaskResourceBriefDto[];
 }
 
+export interface TaskSubmissionAnswerDto {
+  questionId: string;
+  answer?: unknown;
+  autoScore: number;
+  manualScore?: number | null;
+  comments?: string;
+}
+
+export interface TaskSubmissionRevisionDto {
+  gradedBy?: string;
+  score: number;
+  feedback?: string;
+  gradedAt: string;
+}
+
+export interface PendingGradingItemDto {
+  submissionId: string;
+  taskId: string;
+  taskTitle: string;
+  taskType: TaskType;
+  courseId: string;
+  courseTitle: string;
+  studentId: string;
+  studentName: string;
+  submittedAt: string;
+  dueDate: string;
+  maxScore: number;
+}
+
 export interface TaskSubmissionDto {
   id: string;
   taskId: string;
   userId: string;
   content?: string;
   attachments: TaskFileResponseDto[];
+  answers: TaskSubmissionAnswerDto[];
   submittedAt: string;
   status: TaskSubmissionStatus;
   score?: number;
@@ -74,6 +104,7 @@ export interface TaskSubmissionDto {
   feedback?: string;
   gradedBy?: string;
   gradedAt?: string | null;
+  revisionHistory?: TaskSubmissionRevisionDto[];
   user?: TaskUserBriefDto;
   createdAt: string;
   updatedAt: string;

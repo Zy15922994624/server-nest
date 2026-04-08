@@ -44,6 +44,17 @@ export class TasksController {
     return this.tasksService.getTasks(user.userId, user.role, query);
   }
 
+  @Get('pending-grading')
+  @UseGuards(RolesGuard)
+  @Roles('teacher', 'admin')
+  @ApiOperation({ summary: '获取待批改列表' })
+  getPendingGrading(@CurrentUser() user: AuthUser) {
+    return this.taskSubmissionsService.getPendingGrading(
+      user.userId,
+      user.role,
+    );
+  }
+
   @Post()
   @UseGuards(RolesGuard)
   @Roles('teacher', 'admin')
