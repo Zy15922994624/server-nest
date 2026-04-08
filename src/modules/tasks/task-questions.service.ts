@@ -1,6 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { ERROR_CODES } from '../../common/constants/error-codes';
 import { AppException } from '../../common/exceptions/app.exception';
 import type { UserRole } from '../../common/interfaces/auth-user.interface';
@@ -12,6 +12,7 @@ import {
 import { AddTaskQuestionsFromBankDto } from './dto/add-task-questions-from-bank.dto';
 import { ReorderTaskQuestionsDto } from './dto/reorder-task-questions.dto';
 import type { TaskQuestionDto } from './interfaces/task-question-response.interface';
+import { Task, type TaskDocument } from './schemas/task.schema';
 import {
   TaskQuestion,
   type TaskQuestionDocument,
@@ -21,6 +22,8 @@ import { TaskPermissionService } from './task-permission.service';
 @Injectable()
 export class TaskQuestionsService {
   constructor(
+    @InjectModel(Task.name)
+    private readonly taskModel: Model<TaskDocument>,
     @InjectModel(TaskQuestion.name)
     private readonly taskQuestionModel: Model<TaskQuestionDocument>,
     @InjectModel(QuestionBank.name)
@@ -111,6 +114,7 @@ export class TaskQuestionsService {
       { _id: { $in: createPayload.map((item) => item.questionBankId) } },
       { $inc: { useCount: 1 } },
     );
+    await this.syncTaskScores(task._id);
 
     return created.map((item) => this.toTaskQuestionDto(item, true));
   }
@@ -176,6 +180,8 @@ export class TaskQuestionsService {
         { $inc: { useCount: -1 } },
       );
     }
+
+    await this.syncTaskScores(question.taskId);
   }
 
   private toTaskQuestionDto(
@@ -213,5 +219,21 @@ export class TaskQuestionsService {
       ERROR_CODES.BAD_REQUEST,
       HttpStatus.BAD_REQUEST,
     );
+  }
+
+  private async syncTaskScores(taskId: Types.ObjectId) {
+    const task = await this.taskModel.findById(taskId);
+
+    if (!task || !this.supportsQuestionDesign(task.type)) {
+      return;
+    }
+
+    task.totalScore = 100;
+    task.passingScore = 60;
+    await task.save();
+  }
+
+  private supportsQuestionDesign(type: string) {
+    return type === 'homework' || type === 'quiz';
   }
 }

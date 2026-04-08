@@ -543,31 +543,13 @@ export class TasksService {
       next.dueDate = dueDate;
     }
 
-    if (payload.totalScore !== undefined) {
-      next.totalScore = payload.totalScore;
-    }
-
-    if (payload.passingScore !== undefined) {
-      next.passingScore = payload.passingScore;
-    }
-
-    const finalTotalScore =
-      next.totalScore ?? options.currentTask?.totalScore ?? 100;
-    const finalPassingScore =
-      next.passingScore ?? options.currentTask?.passingScore ?? 60;
-    if (finalPassingScore > finalTotalScore) {
-      throw new AppException(
-        '及格分不能高于总分',
-        ERROR_CODES.BAD_REQUEST,
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
     if (payload.attachments !== undefined) {
       next.attachments = this.normalizeFiles(payload.attachments);
     }
 
     const finalType = next.type ?? options.currentTask?.type ?? 'project';
+    next.totalScore = 100;
+    next.passingScore = 60;
     const finalRelatedIds =
       payload.relatedResourceIds !== undefined
         ? payload.relatedResourceIds
