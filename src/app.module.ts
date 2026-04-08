@@ -11,6 +11,7 @@ import { CourseDiscussionsModule } from './modules/course-discussions/course-dis
 import { CourseResourcesModule } from './modules/course-resources/course-resources.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { QuestionBankModule } from './modules/question-bank/question-bank.module';
+import { TasksModule } from './modules/tasks/tasks.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { UsersModule } from './modules/users/users.module';
 
@@ -31,6 +32,7 @@ import { UsersModule } from './modules/users/users.module';
     UsersModule,
     AuthModule,
     CoursesModule,
+    TasksModule,
     CourseDiscussionsModule,
     CourseResourcesModule,
     QuestionBankModule,
