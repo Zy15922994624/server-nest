@@ -6,7 +6,7 @@ import { AppException } from '../../common/exceptions/app.exception';
 import type { ParsedQuestionImportRow } from './question-bank.types';
 import type { QuestionType } from './schemas/question-bank.schema';
 
-const 模板示例题标题 = new Set([
+const templateExampleQuestionTitles = new Set([
   '单选题示例',
   '多选题示例',
   '填空题示例',
@@ -63,7 +63,11 @@ export class QuestionBankImportService {
 
     rows.forEach((row, index) => {
       const title = this.readCellText(row.title);
-      if (!title || title.startsWith('#') || 模板示例题标题.has(title)) {
+      if (
+        !title ||
+        title.startsWith('#') ||
+        templateExampleQuestionTitles.has(title)
+      ) {
         return;
       }
 
