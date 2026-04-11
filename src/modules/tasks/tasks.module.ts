@@ -14,6 +14,7 @@ import {
   QuestionBank,
   QuestionBankSchema,
 } from '../question-bank/schemas/question-bank.schema';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { UploadsModule } from '../uploads/uploads.module';
 import { UsersModule } from '../users/users.module';
 import { User, UserSchema } from '../users/schemas/user.schema';
@@ -39,6 +40,7 @@ import { TasksService } from './tasks.service';
 @Module({
   imports: [
     CoursesModule,
+    NotificationsModule,
     UploadsModule,
     UsersModule,
     MongooseModule.forFeature([

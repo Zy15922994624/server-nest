@@ -86,6 +86,12 @@ export class CourseCleanupService {
             .collection('tasksubmissions')
             .deleteMany({ taskId: { $in: taskIds } })
         : Promise.resolve(),
+      taskIds.length
+        ? this.connection.collection('notifications').deleteMany({
+            relatedType: 'task',
+            relatedId: { $in: taskIds },
+          })
+        : Promise.resolve(),
     ]);
 
     const fileKeys = [

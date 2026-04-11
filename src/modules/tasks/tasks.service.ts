@@ -19,6 +19,7 @@ import {
   QuestionBank,
   QuestionBankDocument,
 } from '../question-bank/schemas/question-bank.schema';
+import { NotificationsService } from '../notifications/notifications.service';
 import { UploadStorageService } from '../uploads/upload-storage.service';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import {
@@ -85,6 +86,7 @@ export class TasksService {
     private readonly coursePermissionService: CoursePermissionService,
     private readonly taskPermissionService: TaskPermissionService,
     private readonly uploadStorageService: UploadStorageService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createTask(
@@ -274,6 +276,7 @@ export class TasksService {
       this.taskAssignmentModel.deleteMany({ taskId: task._id }),
       this.taskQuestionModel.deleteMany({ taskId: task._id }),
       this.taskSubmissionModel.deleteMany({ taskId: task._id }),
+      this.notificationsService.deleteByTaskIds([task._id]),
     ]);
 
     const questionBankIds = taskQuestions

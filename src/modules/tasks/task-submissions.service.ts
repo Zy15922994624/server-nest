@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ERROR_CODES } from '../../common/constants/error-codes';
@@ -6,6 +6,7 @@ import { AppException } from '../../common/exceptions/app.exception';
 import type { UserRole } from '../../common/interfaces/auth-user.interface';
 import { readObjectId, toObjectId } from '../../common/utils/model-value.util';
 import { UploadStorageService } from '../uploads/upload-storage.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   GradeTaskAnswerDto,
   GradeTaskSubmissionDto,
@@ -41,6 +42,8 @@ type SubmissionAnswerRecord = {
 
 @Injectable()
 export class TaskSubmissionsService {
+  private readonly logger = new Logger(TaskSubmissionsService.name);
+
   constructor(
     @InjectModel(Task.name)
     private readonly taskModel: Model<TaskDocument>,
@@ -50,6 +53,7 @@ export class TaskSubmissionsService {
     private readonly taskSubmissionModel: Model<TaskSubmissionDocument>,
     private readonly taskPermissionService: TaskPermissionService,
     private readonly uploadStorageService: UploadStorageService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async getCurrentSubmission(
@@ -261,6 +265,19 @@ export class TaskSubmissionsService {
 
     await submission.save();
     await submission.populate('userId', 'username fullName');
+
+    try {
+      await this.notificationsService.createNotification({
+        recipientId: payload.studentId,
+        type: 'task_graded',
+        title: '任务已评分',
+        content: `你的任务“${task.title}”已完成评分，当前得分为 ${score} / ${task.totalScore}。`,
+        relatedId: task._id,
+        relatedType: 'task',
+      });
+    } catch (error) {
+      this.logger.error('创建任务评分通知失败', error);
+    }
 
     return this.toSubmissionDto(submission, questions);
   }
