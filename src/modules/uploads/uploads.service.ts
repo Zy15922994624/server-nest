@@ -5,7 +5,10 @@ import type {
   StoredUploadFile,
   UploadFileDto,
 } from './interfaces/upload-file.interface';
-import { UploadStorageService } from './upload-storage.service';
+import {
+  normalizeUploadedFilename,
+  UploadStorageService,
+} from './upload-storage.service';
 
 type UploadScene = 'image' | 'attachment';
 
@@ -48,9 +51,16 @@ const ATTACHMENT_RULE: SceneRule = {
     'video/webm',
     'video/x-matroska',
     'application/zip',
+    'application/x-compressed',
+    'application/x-zip',
     'application/x-zip-compressed',
     'application/x-rar-compressed',
     'application/x-7z-compressed',
+    'application/gzip',
+    'application/x-gzip',
+    'application/x-bzip2',
+    'application/x-xz',
+    'application/x-tar',
     'text/plain',
     'text/markdown',
     'application/json',
@@ -86,7 +96,7 @@ export class UploadsService {
       return {
         key,
         url: `/${key}`,
-        originalName: file.originalname,
+        originalName: normalizeUploadedFilename(file.originalname),
         size: file.size,
         mimeType: file.mimetype,
       };

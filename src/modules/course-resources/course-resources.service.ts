@@ -6,7 +6,10 @@ import { AppException } from '../../common/exceptions/app.exception';
 import { toObjectId } from '../../common/utils/model-value.util';
 import type { UserRole } from '../../common/interfaces/auth-user.interface';
 import { CoursePermissionService } from '../courses/course-permission.service';
-import { UploadStorageService } from '../uploads/upload-storage.service';
+import {
+  normalizeUploadedFilename,
+  UploadStorageService,
+} from '../uploads/upload-storage.service';
 import { CreateCourseResourceDto } from './dto/create-course-resource.dto';
 import { QueryCourseResourcesDto } from './dto/query-course-resources.dto';
 import { UpdateCourseResourceDto } from './dto/update-course-resource.dto';
@@ -182,7 +185,7 @@ export class CourseResourcesService {
 
     const fileKey = payload.fileKey.trim();
     const fileUrl = payload.fileUrl.trim();
-    const originalFileName = payload.originalFileName.trim();
+    const originalFileName = normalizeUploadedFilename(payload.originalFileName);
     const mimeType = payload.mimeType.trim();
 
     if (!fileKey || !fileUrl || !originalFileName || !mimeType) {
@@ -327,7 +330,7 @@ export class CourseResourcesService {
       type: resource.type,
       fileKey: resource.fileKey,
       fileUrl: resource.fileUrl,
-      originalFileName: resource.originalFileName,
+      originalFileName: normalizeUploadedFilename(resource.originalFileName),
       mimeType: resource.mimeType,
       size: resource.size,
       uploaderId:

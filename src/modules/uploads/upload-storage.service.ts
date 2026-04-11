@@ -30,6 +30,38 @@ export function createStoredFilename(originalName: string): string {
   return `${timestamp}-${randomValue}${extension}`;
 }
 
+const CJK_PATTERN = /[\u3400-\u9fff]/;
+const MOJIBAKE_PATTERN = /[ÃÂãåæçèéêëìíîïðñòóôõöøùúûüýþ]/;
+
+export function normalizeUploadedFilename(originalName: string): string {
+  const trimmed = originalName.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  if (CJK_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (!MOJIBAKE_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+
+  const decoded = Buffer.from(trimmed, 'latin1').toString('utf8').trim();
+  if (!decoded || decoded.includes('�') || decoded.includes('\u0000')) {
+    return trimmed;
+  }
+
+  const originalSuspiciousCount = (trimmed.match(MOJIBAKE_PATTERN) || []).length;
+  const decodedSuspiciousCount = (decoded.match(MOJIBAKE_PATTERN) || []).length;
+
+  if (CJK_PATTERN.test(decoded) || decodedSuspiciousCount < originalSuspiciousCount) {
+    return decoded;
+  }
+
+  return trimmed;
+}
+
 @Injectable()
 export class UploadStorageService {
   getUploadsDir(): string {
