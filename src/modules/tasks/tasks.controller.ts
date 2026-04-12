@@ -7,9 +7,11 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -17,6 +19,7 @@ import type { AuthUser } from '../../common/interfaces/auth-user.interface';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AddTaskQuestionsFromBankDto } from './dto/add-task-questions-from-bank.dto';
 import { CreateTaskDto } from './dto/create-task.dto';
+import { DownloadTaskAttachmentDto } from './dto/download-task-attachment.dto';
 import { GradeTaskSubmissionDto } from './dto/grade-task-submission.dto';
 import { QueryTaskSubmissionsDto } from './dto/query-task-submissions.dto';
 import { QueryTasksDto } from './dto/query-tasks.dto';
@@ -67,6 +70,25 @@ export class TasksController {
   @ApiOperation({ summary: '获取任务详情' })
   getTaskById(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.tasksService.getTaskById(id, user.userId, user.role);
+  }
+
+  @Get(':id/attachments/download')
+  @ApiOperation({ summary: '下载任务附件' })
+  async downloadTaskAttachment(
+    @Param('id') id: string,
+    @Query() query: DownloadTaskAttachmentDto,
+    @CurrentUser() user: AuthUser,
+    @Res() response: Response,
+  ) {
+    const { filePath, fileName } =
+      await this.tasksService.getTaskAttachmentDownload(
+        id,
+        query.key,
+        user.userId,
+        user.role,
+      );
+
+    return response.download(filePath, fileName);
   }
 
   @Patch(':id')

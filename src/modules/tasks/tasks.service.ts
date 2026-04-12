@@ -188,6 +188,36 @@ export class TasksService {
     };
   }
 
+  async getTaskAttachmentDownload(
+    taskId: string,
+    attachmentKey: string,
+    userId: string,
+    role: UserRole,
+  ): Promise<{ filePath: string; fileName: string }> {
+    const task = await this.taskPermissionService.getReadableTask(
+      taskId,
+      userId,
+      role,
+    );
+    const normalizedKey = attachmentKey.trim();
+    const attachment = task.attachments.find(
+      (item) => item.key === normalizedKey,
+    );
+
+    if (!attachment) {
+      throw new AppException(
+        '附件不存在或不属于当前任务',
+        ERROR_CODES.NOT_FOUND,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return {
+      filePath: this.uploadStorageService.resolveStoredFilePath(attachment.key),
+      fileName: attachment.originalName || attachment.name || 'attachment',
+    };
+  }
+
   async updateTask(
     taskId: string,
     payload: UpdateTaskDto,
@@ -378,7 +408,17 @@ export class TasksService {
     }
 
     const taskIds = tasks.map((task) => task._id);
-    const courseIds = tasks.map((task) => task.courseId);
+    const courseIds = tasks
+      .map((task) => {
+        const rawCourse = task.courseId;
+        if (rawCourse instanceof Types.ObjectId) {
+          return rawCourse;
+        }
+
+        const populatedCourse = rawCourse as { _id?: Types.ObjectId };
+        return populatedCourse._id;
+      })
+      .filter((value): value is Types.ObjectId => Boolean(value));
 
     const studentSubmissionDocs =
       role === 'student'
@@ -747,12 +787,13 @@ export class TasksService {
 
     const course = rawCourse as Types.ObjectId & {
       _id?: Types.ObjectId;
+      id?: string;
       title?: string;
       courseCode?: string;
     };
 
     return {
-      id: course._id?.toString() ?? '',
+      id: course._id?.toString() ?? course.id ?? '',
       title: course.title ?? '',
       courseCode: course.courseCode,
     };
