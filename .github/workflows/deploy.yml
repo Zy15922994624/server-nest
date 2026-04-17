@@ -28,10 +28,11 @@ jobs:
           script: |
             set -eu
             cd "${{ secrets.DEPLOY_PATH }}"
+            DEPLOY_BRANCH="${{ github.ref_name }}"
 
             git fetch --all
-            git checkout main
-            git pull --ff-only origin main
+            git checkout "${DEPLOY_BRANCH}"
+            git pull --ff-only origin "${DEPLOY_BRANCH}"
 
             export BACKEND_IMAGE="${{ secrets.BACKEND_IMAGE }}"
             export FRONTEND_IMAGE="${{ secrets.FRONTEND_IMAGE }}"
