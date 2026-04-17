@@ -15,11 +15,9 @@ services:
   backend:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile.prod
     container_name: lms-backend
     restart: unless-stopped
-    working_dir: /app
-    command: sh /app/scripts/start-backend-dev.sh
     env_file:
       - .env
     environment:
@@ -28,11 +26,7 @@ services:
       JWT_SECRET: your_jwt_secret
       JWT_EXPIRES_IN: 1d
       UPLOADS_DIR: /app/uploads
-      CHOKIDAR_USEPOLLING: 'true'
-      WATCHPACK_POLLING: 'true'
     volumes:
-      - ./:/app
-      - backend-node-modules:/app/node_modules
       - backend-uploads:/app/uploads
     depends_on:
       - mongo
@@ -48,28 +42,20 @@ services:
   frontend:
     build:
       context: ../lms-react
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile.prod
     container_name: lms-frontend
     restart: unless-stopped
-    working_dir: /app
-    command: npm run dev -- --host 0.0.0.0
-    environment:
-      VITE_API_BASE_URL: /api
-      CHOKIDAR_USEPOLLING: 'true'
-    volumes:
-      - ../lms-react:/app
-      - frontend-node-modules:/app/node_modules
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:5173/ >/dev/null 2>&1 || exit 1']
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1']
       interval: 10s
       timeout: 5s
       retries: 12
       start_period: 20s
     expose:
-      - '5173'
+      - '80'
 
   nginx:
     image: nginx:1.27-alpine
@@ -93,6 +79,4 @@ services:
 
 volumes:
   mongo-data:
-  backend-node-modules:
   backend-uploads:
-  frontend-node-modules:
