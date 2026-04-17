@@ -13,9 +13,7 @@ services:
       - mongo-data:/data/db
 
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile.prod
+    image: ${BACKEND_IMAGE}:${BACKEND_TAG:-latest}
     container_name: lms-backend
     restart: unless-stopped
     env_file:
@@ -40,9 +38,7 @@ services:
       - '3000'
 
   frontend:
-    build:
-      context: ../lms-react
-      dockerfile: Dockerfile.prod
+    image: ${FRONTEND_IMAGE}:${FRONTEND_TAG:-latest}
     container_name: lms-frontend
     restart: unless-stopped
     depends_on:

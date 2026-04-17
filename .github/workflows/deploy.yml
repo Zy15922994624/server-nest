@@ -1,0 +1,45 @@
+name: Deploy To Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend_tag:
+        description: Backend image tag
+        required: true
+        default: latest
+      frontend_tag:
+        description: Frontend image tag
+        required: true
+        default: latest
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.SERVER_HOST != '' && secrets.SERVER_USER != '' && secrets.SERVER_SSH_KEY != '' && secrets.DEPLOY_PATH != '' && secrets.BACKEND_IMAGE != '' && secrets.FRONTEND_IMAGE != '' }}
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          port: ${{ secrets.SERVER_PORT || '22' }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -eu
+            cd "${{ secrets.DEPLOY_PATH }}"
+
+            git fetch --all
+            git checkout main
+            git pull --ff-only origin main
+
+            export BACKEND_IMAGE="${{ secrets.BACKEND_IMAGE }}"
+            export FRONTEND_IMAGE="${{ secrets.FRONTEND_IMAGE }}"
+            export BACKEND_TAG="${{ github.event.inputs.backend_tag }}"
+            export FRONTEND_TAG="${{ github.event.inputs.frontend_tag }}"
+
+            docker compose -f docker-compose.deploy.yml pull backend frontend nginx mongo
+            docker compose -f docker-compose.deploy.yml up -d --remove-orphans
+
+            curl -fsS http://127.0.0.1/api/ >/dev/null
+            docker compose -f docker-compose.deploy.yml ps
