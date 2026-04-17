@@ -15,8 +15,30 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: ${{ secrets.SERVER_HOST != '' && secrets.SERVER_USER != '' && secrets.SERVER_SSH_KEY != '' && secrets.DEPLOY_PATH != '' && secrets.BACKEND_IMAGE != '' && secrets.FRONTEND_IMAGE != '' && secrets.REGISTRY != '' && secrets.REGISTRY_USERNAME != '' && secrets.REGISTRY_PASSWORD != '' }}
     steps:
+      - name: Validate required secrets
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          BACKEND_IMAGE: ${{ secrets.BACKEND_IMAGE }}
+          FRONTEND_IMAGE: ${{ secrets.FRONTEND_IMAGE }}
+          REGISTRY: ${{ secrets.REGISTRY }}
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          set -eu
+          [ -n "$SERVER_HOST" ] || (echo "Missing secret: SERVER_HOST" && exit 1)
+          [ -n "$SERVER_USER" ] || (echo "Missing secret: SERVER_USER" && exit 1)
+          [ -n "$SERVER_SSH_KEY" ] || (echo "Missing secret: SERVER_SSH_KEY" && exit 1)
+          [ -n "$DEPLOY_PATH" ] || (echo "Missing secret: DEPLOY_PATH" && exit 1)
+          [ -n "$BACKEND_IMAGE" ] || (echo "Missing secret: BACKEND_IMAGE" && exit 1)
+          [ -n "$FRONTEND_IMAGE" ] || (echo "Missing secret: FRONTEND_IMAGE" && exit 1)
+          [ -n "$REGISTRY" ] || (echo "Missing secret: REGISTRY" && exit 1)
+          [ -n "$REGISTRY_USERNAME" ] || (echo "Missing secret: REGISTRY_USERNAME" && exit 1)
+          [ -n "$REGISTRY_PASSWORD" ] || (echo "Missing secret: REGISTRY_PASSWORD" && exit 1)
+
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
