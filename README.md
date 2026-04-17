@@ -1,48 +1,67 @@
-## LMS 演示环境
+﻿# server-nest
 
-本项目支持通过 Docker 一体化启动 `frontend + backend + nginx + mongo`。
+学习任务管理系统后端（NestJS + MongoDB），提供认证鉴权、课程管理、任务管理、题库管理、通知推送与文件上传能力。
 
-### 1. 启动服务
+## 仓库关系
+
+- 后端：<https://github.com/Zy15922994624/server-nest>
+- 前端：<https://github.com/Zy15922994624/lms-react>
+
+## 技术栈
+
+- NestJS 11 + TypeScript
+- MongoDB + Mongoose
+- JWT + Passport
+- Socket.IO
+- Swagger
+
+## 快速启动
+
+### 本地启动
+
+```bash
+npm install
+npm run start:dev
+npm run seed:users
+```
+
+默认地址：
+
+- API：`http://localhost:3000/api`
+- 文档：`http://localhost:3000/api/docs`
+
+### Docker 一体化联调（推荐）
 
 ```bash
 docker compose up -d --build
-```
-
-### 2. 初始化演示账号
-
-```bash
 docker exec lms-backend npm run seed:users
 ```
 
-默认演示账号：
+访问：`http://localhost:8080/api/docs`
+
+## 演示账号
 
 - 管理员：`admin001 / Admin@123456`
 - 教师：`teacher001 / Teacher@123456`
 - 学生：`student001 / Student@123456`
 
-### 3. 访问地址
+## 环境变量示例
 
-- 前端（经 Nginx）：`http://localhost:8080`
-- Swagger：`http://localhost:8080/api/docs`
+```env
+PORT=3000
+MONGO_URL=mongodb://admin:admin@localhost:27017/lms_demo?authSource=admin
+JWT_SECRET=your_jwt_secret
+JWT_EXPIRES_IN=1d
+UPLOADS_DIR=./uploads
+```
 
-### 4. 说明
-
-- `backend` 增加了健康检查，只有后端接口真正可用后，网关才开始转发流量。
-- `frontend` 增加了健康检查，避免 Nginx 在前端开发服务未完成启动时提前接流量。
-- 如果修改了依赖或容器配置，建议重新执行一次 `docker compose up -d --build`。
-
-### 5. 常用维护命令
+## 常用命令
 
 ```bash
-# 停止并移除容器
-docker compose down
-
-# 连同数据库卷一起清空（重置演示数据）
-docker compose down -v
-
-# 查看后端日志
-docker logs -f lms-backend
-
-# 查看网关日志
-docker logs -f lms-nginx
+npm run start:dev
+npm run build
+npm run start:prod
+npm run seed:users
+npm run test
+npm run lint
 ```
