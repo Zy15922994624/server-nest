@@ -15,7 +15,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: ${{ secrets.SERVER_HOST != '' && secrets.SERVER_USER != '' && secrets.SERVER_SSH_KEY != '' && secrets.DEPLOY_PATH != '' && secrets.BACKEND_IMAGE != '' && secrets.FRONTEND_IMAGE != '' }}
+    if: ${{ secrets.SERVER_HOST != '' && secrets.SERVER_USER != '' && secrets.SERVER_SSH_KEY != '' && secrets.DEPLOY_PATH != '' && secrets.BACKEND_IMAGE != '' && secrets.FRONTEND_IMAGE != '' && secrets.REGISTRY != '' && secrets.REGISTRY_USERNAME != '' && secrets.REGISTRY_PASSWORD != '' }}
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -39,6 +39,7 @@ jobs:
             export BACKEND_TAG="${{ github.event.inputs.backend_tag }}"
             export FRONTEND_TAG="${{ github.event.inputs.frontend_tag }}"
 
+            echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login "${{ secrets.REGISTRY }}" -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
             docker compose -f docker-compose.deploy.yml pull backend frontend nginx mongo
             docker compose -f docker-compose.deploy.yml up -d --remove-orphans
 

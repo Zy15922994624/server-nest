@@ -11,6 +11,10 @@ import type { Server, Socket } from 'socket.io';
 import type { AuthUser } from '../../common/interfaces/auth-user.interface';
 import type { NotificationItemDto } from './interfaces/notification-response.interface';
 
+type SocketData = {
+  user?: AuthUser;
+};
+
 @WebSocketGateway({
   cors: {
     origin: true,
@@ -29,18 +33,20 @@ export class NotificationsGateway
   constructor(private readonly jwtService: JwtService) {}
 
   afterInit(server: Server) {
-    server.use(async (client, next) => {
-      try {
-        client.data.user = await this.authenticateClient(client);
-        next();
-      } catch {
-        next(new Error('认证失败'));
-      }
+    server.use((client, next) => {
+      void this.authenticateClient(client)
+        .then((user) => {
+          (client.data as SocketData).user = user;
+          next();
+        })
+        .catch(() => {
+          next(new Error('Authentication failed'));
+        });
     });
   }
 
   async handleConnection(client: Socket) {
-    const user = client.data.user as AuthUser | undefined;
+    const user = (client.data as SocketData).user;
 
     if (!user?.userId) {
       client.disconnect(true);
@@ -49,18 +55,19 @@ export class NotificationsGateway
 
     await client.join(this.getUserRoom(user.userId));
     client.emit('connected', {
-      message: '连接成功',
+      message: 'connected',
       userId: user.userId,
     });
 
-    this.logger.log(`用户 ${user.userId} 已连接通知网关`);
+    this.logger.log(`User ${user.userId} connected to notifications gateway`);
   }
 
   handleDisconnect(client: Socket) {
-    const user = client.data.user as AuthUser | undefined;
-
+    const user = (client.data as SocketData).user;
     if (user?.userId) {
-      this.logger.log(`用户 ${user.userId} 已断开通知网关`);
+      this.logger.log(
+        `User ${user.userId} disconnected from notifications gateway`,
+      );
     }
   }
 
@@ -80,19 +87,24 @@ export class NotificationsGateway
     const token = this.extractToken(client);
 
     if (!token) {
-      throw new Error('未提供认证令牌');
+      throw new Error('Token is required');
     }
 
     return this.jwtService.verifyAsync<AuthUser>(token);
   }
 
   private extractToken(client: Socket): string | null {
-    const authToken = client.handshake.auth.token;
+    const authPayload = client.handshake.auth as Record<string, unknown>;
+    const authToken = authPayload.token;
     if (typeof authToken === 'string' && authToken.trim()) {
       return authToken.trim();
     }
 
-    const authorization = client.handshake.headers.authorization;
+    const headers = client.handshake.headers as Record<
+      string,
+      string | string[] | undefined
+    >;
+    const authorization = headers.authorization;
     if (
       typeof authorization === 'string' &&
       authorization.startsWith('Bearer ')
