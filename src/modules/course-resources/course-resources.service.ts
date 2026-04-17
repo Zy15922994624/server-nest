@@ -185,7 +185,9 @@ export class CourseResourcesService {
 
     const fileKey = payload.fileKey.trim();
     const fileUrl = payload.fileUrl.trim();
-    const originalFileName = normalizeUploadedFilename(payload.originalFileName);
+    const originalFileName = normalizeUploadedFilename(
+      payload.originalFileName,
+    );
     const mimeType = payload.mimeType.trim();
 
     if (!fileKey || !fileUrl || !originalFileName || !mimeType) {

@@ -52,10 +52,14 @@ export function normalizeUploadedFilename(originalName: string): string {
     return trimmed;
   }
 
-  const originalSuspiciousCount = (trimmed.match(MOJIBAKE_PATTERN) || []).length;
+  const originalSuspiciousCount = (trimmed.match(MOJIBAKE_PATTERN) || [])
+    .length;
   const decodedSuspiciousCount = (decoded.match(MOJIBAKE_PATTERN) || []).length;
 
-  if (CJK_PATTERN.test(decoded) || decodedSuspiciousCount < originalSuspiciousCount) {
+  if (
+    CJK_PATTERN.test(decoded) ||
+    decodedSuspiciousCount < originalSuspiciousCount
+  ) {
     return decoded;
   }
 
