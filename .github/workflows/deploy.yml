@@ -39,6 +39,32 @@ jobs:
           [ -n "$REGISTRY_USERNAME" ] || (echo "Missing secret: REGISTRY_USERNAME" && exit 1)
           [ -n "$REGISTRY_PASSWORD" ] || (echo "Missing secret: REGISTRY_PASSWORD" && exit 1)
 
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare remote directory
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          port: ${{ secrets.SERVER_PORT || '22' }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -eu
+            mkdir -p "${{ secrets.DEPLOY_PATH }}/infra/nginx"
+
+      - name: Sync deploy files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          port: ${{ secrets.SERVER_PORT || '22' }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "docker-compose.deploy.yml,infra/nginx/default.conf"
+          target: ${{ secrets.DEPLOY_PATH }}
+          overwrite: true
+
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -50,6 +76,11 @@ jobs:
           script: |
             set -eu
             cd "${{ secrets.DEPLOY_PATH }}"
+            pwd
+            ls -la
+            ls -la infra/nginx
+            [ -f "docker-compose.deploy.yml" ] || (echo "Missing file: docker-compose.deploy.yml under DEPLOY_PATH=${{ secrets.DEPLOY_PATH }}" && exit 1)
+            [ -f "infra/nginx/default.conf" ] || (echo "Missing file: infra/nginx/default.conf under DEPLOY_PATH=${{ secrets.DEPLOY_PATH }}" && exit 1)
 
             export BACKEND_IMAGE="${{ secrets.BACKEND_IMAGE }}"
             export FRONTEND_IMAGE="${{ secrets.FRONTEND_IMAGE }}"
