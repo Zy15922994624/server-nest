@@ -1,8 +1,9 @@
 name: Build And Push Backend Image
 
 on:
-  push:
-    branches: [master, main]
+  workflow_run:
+    workflows: ['Backend CI']
+    types: [completed]
   workflow_dispatch:
 
 env:
@@ -11,6 +12,9 @@ env:
 jobs:
   docker:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && (github.event.workflow_run.head_branch == 'master' || github.event.workflow_run.head_branch == 'main')) }}
+    env:
+      SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
     steps:
       - name: Validate required secrets
         env:
@@ -27,6 +31,14 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+
+      - name: Derive short SHA tag
+        id: vars
+        run: |
+          set -eu
+          echo "short_sha=${SOURCE_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -48,7 +60,7 @@ jobs:
           images: ${{ env.IMAGE }}
           tags: |
             type=raw,value=latest
-            type=sha,format=short
+            type=raw,value=sha-${{ steps.vars.outputs.short_sha }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
